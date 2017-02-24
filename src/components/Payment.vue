@@ -6,68 +6,36 @@
                 <h1>Payment</h1>
             </div>
             <div class="col-md-8 col-md-offset-2" style="margin-top: 50px">
-                <p id="payment">Please enter the following information: </p>
-                <div class="col-md-offset-3">
-                    <!-- <div class="form-group">
-                        <p>First Name: </p>
-                        <input type="text" class="form-control" placeholder="First Name">
+                <div class="col-md-offset-4">
+                    <div class="form-group">
+                        <p>Cardholder Name: </p>
+                        <input type="text" class="form-control" placeholder="Cardholder Name" v-model="details.name">
                     </div>
                     <div class="form-group">
-                        <p>Last Name: </p>
-                        <input type="text" class="form-control" placeholder="Last Name">
+                        <p>Card Number: </p>
+                        <input type="text" maxlength="16" class="form-control" placeholder="Card Number" v-model="details.number">
                     </div>
                     <div class="form-group">
-                        <p>Credit Card number: </p>
-                        <input type="text" class="form-control" placeholder="Credit Card Number">
+                        <p>Expiration Date: </p>
+                        <div>
+                            <input type="text" maxlength="2" class="form-control exp" placeholder="MM" v-model="details.exp_month">
+                            <input type="text" maxlength="2" class="form-control exp" placeholder="YY" v-model="details.exp_year">
+                        </div>
+                    </div>
+                    <div class="form-group" style="clear: left">
+                        <p>CVC: </p>
+                        <input type="text" maxlength="3" class="form-control" placeholder="CVC" v-model="details.cvc">
                     </div>
                     <div class="form-group">
-                        <p>Expiration date: </p>
-                        <input type="text" class="form-control" placeholder="Expiration Date">
-                    </div> -->
-                    <form action="/your-charge-code" method="POST" id="payment-form" autocomplete="on">
-                        <!-- <span class="payment-errors"></span> -->
-
-                        <div class="form-group">
-                            <p class="label">Card Number: </p>
-                            <input type="tel" size="20" class="form-control" placeholder="Card Number" v-model="details.number">
-                                <!-- <span>Card Number</span>
-                                <input type="text" size="20" data-stripe="number">
-                            </label> -->
-                        </div>
-
-                        <div class="form-group">
-                            <p class="label">Expiration (MM/YY): </p>
-                            <input type="tel" size="5" class="form-control" placeholder="MM/YY" v-model="details.exp_month_year">
-                        </div>
-
-                        <div class="form-group">
-                            <p class="label">CVC: </p>
-                            <input type="tel" class="form-control" size="4" placeholder="CVC" v-model="details.cvc">
-                            <!-- <label>
-                                <span>CVC</span>
-                                <input type="text" size="4" data-stripe="cvc">
-                            </label> -->
-                        </div>
-
-                        <div class="form-group">
-                            <p class="label">Billing ZIP Code: </p>
-                            <input type="tel" class="form-control "size="6" placeholder="Billing ZIP Code" v-model="details.zip">
-                            <!-- <label>
-                                <span>Billing ZIP Code</span>
-                                <input type="text" size="6" data-stripe="address_zip">
-                            </label> -->
-                        </div>
-                    </form>
+                        <p>Zip Code: </p>
+                        <input type="text" maxlength="5" class="form-control" placeholder="Zip Code (e.g. 47906)" v-model="details.zip">
+                    </div>
                 </div>
                  <div style="margin-top: 30px">
                      <button class="btn btn-warning submit" v-on:click="submit">Submit</button>
                 </div>
             </div>
         </div>
-        <!-- <script type="text/javascript" src="https://js.stripe.com/v2/"></script>
-        <script type="text/javascript">
-          Stripe.setPublishableKey('pk_test_oBBdu24osiO5GbUDP1t6PqSI');
-        </script> -->
     </div>
 </template>
 
@@ -79,10 +47,11 @@ export default {
         details: {
           number: '',
           cvc: '',
-          exp_month_year: '',
-          zip: ''
-      },
-      token: ''
+          exp_month: '',
+          exp_year: '',
+          zip: '',
+          name: ''
+        }
       }
     },
     methods: {
@@ -90,7 +59,7 @@ export default {
             if (!Stripe.card.validateCardNumber(this.details.number)){
                 window.alert('Please put in a correct credit card number')
             }
-            else if (!Stripe.card.validateExpiry(this.details.exp_month_year)){
+            else if (!Stripe.card.validateExpiry(this.details.exp_month + '/' + this.details.exp_year)){
                 window.alert('Please put in a correct expiration date')
             }
             else if (!Stripe.card.validateCVC(this.details.cvc)){
@@ -103,40 +72,43 @@ export default {
             var details = {
                 number: this.details.number,
                 cvc: this.details.cvc,
-                exp: this.details.exp_month_year,
-                address_zip: this.details.zip
+                exp: this.details.exp_month + "/" + this.details.exp_year,
+                address_zip: this.details.zip,
+                name: this.details.name
             }
 
+            var exp_month_year = this.details.exp_month + this.details.exp_year
+            var cardNumber = this.details.number
+            var cvc = this.details.cvc
+            var bzip = this.details.zip
             Stripe.card.createToken(details, function (status, response) {
                 if (response.error){
-                    window.alert("There was an error! Please re-enter the information")
+                    window.alert("Stripe error: " + response.error["message"]);
                 }
                 else {
                     var token = response.id
                     localStorage.setItem('stripe_token', token)
+
+                    var data = "card=" + cardNumber + "&cvc=" + cvc + "&bzip=" + bzip + "&exp=" + exp_month_year + "&stripe_token=" + token;
+                    var xhr = new XMLHttpRequest();
+                    xhr.withCredentials = true;
+
+                    xhr.addEventListener("readystatechange", function () {
+                        if (this.readyState === 4) {
+                            var res = JSON.parse(this.responseText)
+                            window.location.href = "/#/confirmation"
+                        }
+                    });
+
+                    xhr.open("POST", "https://anvil-payments.herokuapp.com/api/pay");
+                    xhr.setRequestHeader("content-type", "application/x-www-form-urlencoded");
+                    xhr.setRequestHeader("authorization", "Bearer " + localStorage.getItem('token'));
+                    xhr.setRequestHeader("cache-control", "no-cache");
+                    xhr.setRequestHeader("postman-token", "1ccc32a1-078d-bab1-0e49-a3242c3c4ad0");
+
+                    xhr.send(data);
                 }
             })
-
-            var token = localStorage.getItem('stripe_token')
-
-            var data = "card=" + this.details.number + "&cvc=" + this.details.cvc + "&bzip=" + this.details.zip + "&exp=" + this.details.exp_month_year + "&stripe_token=" + token;
-            var xhr = new XMLHttpRequest();
-            xhr.withCredentials = true;
-
-            xhr.addEventListener("readystatechange", function () {
-                if (this.readyState === 4) {
-                    var res = JSON.parse(this.responseText)
-                    window.location.href = "/#/confirmation"
-                }
-            });
-
-            xhr.open("POST", "https://anvil-payments.herokuapp.com/api/pay");
-            xhr.setRequestHeader("content-type", "application/x-www-form-urlencoded");
-            xhr.setRequestHeader("authorization", "Bearer " + localStorage.getItem('token'));
-            xhr.setRequestHeader("cache-control", "no-cache");
-            xhr.setRequestHeader("postman-token", "1ccc32a1-078d-bab1-0e49-a3242c3c4ad0");
-
-            xhr.send(data);
         }
       }
     }
@@ -144,17 +116,10 @@ export default {
 </script>
 
 <style>
-.label {
-    text-align: left;
-}
-
-#payment {
-    font-weight: bold;
-    text-align: left;
-}
-
-.expiration {
-    width: 10%;
-    margin-right: 0px;
+.exp {
+    width: 15%;
+    display: inline;
+    float: left;
+    margin-bottom: 15px;
 }
 </style>

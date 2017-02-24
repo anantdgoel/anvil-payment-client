@@ -27,7 +27,6 @@
 </template>
 
 <script>
-// import auth from '../auth'
 import Vue from 'vue'
 import Payment from './Payment.vue'
 
@@ -45,16 +44,9 @@ export default {
       authenticated: false
     }
   },
-  // computed : {
-  //     authenticated: function () {
-  //         return this.authenticated = true
-  //     }
-  // },
   methods: {
       //change this
     submit: function () {
-        // this.authenticated = true
-        // window.location.href = "/#/payment"
         var data = "password=" + this.credentials.password + "&email=" + this.credentials.email
         var xhr = new XMLHttpRequest()
         xhr.withCredentials = true
@@ -72,7 +64,7 @@ export default {
                 }
                 else {
                     localStorage.setItem('token', response["token"])
-                    window.location.href = "/#/payment"
+                    redirect(localStorage.getItem('token'), data)
                 }
             }
         })
@@ -84,5 +76,29 @@ export default {
         xhr.send(data)
     }
   }
+}
+
+function redirect(token, data){
+    var xhr = new XMLHttpRequest();
+    xhr.withCredentials = true;
+    xhr.addEventListener("readystatechange", function () {
+        if (this.readyState === 4) {
+            var response = JSON.parse(this.responseText)
+            if (JSON.parse(response["paid"])){
+                window.location.href = "/#/confirmation"
+            }
+            else {
+                window.location.href = "/#/payment"
+            }
+        }
+    });
+
+    xhr.open("GET", "https://anvil-payments.herokuapp.com/api/profile");
+    xhr.setRequestHeader("content-type", "application/x-www-form-urlencoded");
+    xhr.setRequestHeader("authorization", "Bearer " + token);
+    xhr.setRequestHeader("cache-control", "no-cache");
+    xhr.setRequestHeader("postman-token", "13020f98-4f23-3ade-48a9-b13b25d89129");
+
+    xhr.send(data);
 }
 </script>
